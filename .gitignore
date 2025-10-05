@@ -6,7 +6,6 @@
 .pnp.js
 .pnp.cjs
 .pnp.loader.mjs
-contracts/lib
 # yarn
 .yarn/*
 yarn-debug.log*
