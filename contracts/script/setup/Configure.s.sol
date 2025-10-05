@@ -24,10 +24,10 @@ contract ConfigureScript is Script {
         // Grant relayer roles
         console.log("\nGranting RELAYER_ROLE...");
         source.grantRole(source.RELAYER_ROLE(), relayer);
-        console.log("✅ Source contract: RELAYER_ROLE granted");
+        console.log(unicode"✅", "Source contract: RELAYER_ROLE granted");
 
         dest.grantRole(dest.RELAYER_ROLE(), relayer);
-        console.log("✅ Destination contract: RELAYER_ROLE granted");
+        console.log(unicode"✅", "Destination contract: RELAYER_ROLE granted");
 
         vm.stopBroadcast();
 
@@ -40,10 +40,10 @@ contract ConfigureScript is Script {
         console.log("Destination relayer role granted:", destRoleGranted);
 
         if (sourceRoleGranted && destRoleGranted) {
-            console.log("\n🎉 CONFIGURATION COMPLETE!");
+            console.log("\n", unicode"🎉", "CONFIGURATION COMPLETE!");
             console.log("All relayer permissions configured successfully.");
         } else {
-            console.log("\n❌ CONFIGURATION FAILED!");
+            console.log("\n", unicode"❌", "CONFIGURATION FAILED!");
             console.log("Some permissions were not granted correctly.");
         }
     }

@@ -31,7 +31,7 @@ contract VerifyScript is Script {
         // 1. Verify contracts are deployed
         require(sourceAddr.code.length > 0, "Source contract not deployed");
         require(destAddr.code.length > 0, "Destination contract not deployed");
-        console.log("✅ Both contracts successfully deployed");
+        console.log(unicode"✅", "Both contracts successfully deployed");
 
         console.log("\n2. VERIFYING RELAYER PERMISSIONS...");
 
@@ -41,7 +41,7 @@ contract VerifyScript is Script {
 
         require(sourceRoleGranted, "Source: Missing relayer role");
         require(destRoleGranted, "Destination: Missing relayer role");
-        console.log("✅ Relayer permissions configured on both contracts");
+        console.log(unicode"✅", "Relayer permissions configured on both contracts");
 
         console.log("\n3. VERIFYING EIP-712 SETUP...");
 
@@ -51,7 +51,7 @@ contract VerifyScript is Script {
 
         require(sourceDomain != bytes32(0), "Invalid source domain separator");
         require(destSourceDomain != bytes32(0), "Invalid destination source domain separator");
-        console.log("✅ EIP-712 domain separators configured correctly");
+        console.log(unicode"✅", "EIP-712 domain separators configured correctly");
         console.log("   Source Domain:", vm.toString(sourceDomain));
         console.log("   Dest Source Domain:", vm.toString(destSourceDomain));
 
@@ -59,7 +59,7 @@ contract VerifyScript is Script {
 
         // 4. Verify chain configuration
         uint256 currentChainId = source.getChainId();
-        console.log("✅ Chain ID verification:", currentChainId);
+        console.log(unicode"✅", "Chain ID verification:", currentChainId);
         require(currentChainId == block.chainid, "Chain ID mismatch");
 
         console.log("\n5. TESTING MESSAGE FLOW SIMULATION...");
@@ -70,7 +70,7 @@ contract VerifyScript is Script {
 
         // Verify relayer nonce
         uint256 relayerNonce = dest.getRelayerNonce(relayer);
-        console.log("✅ Relayer nonce:", relayerNonce);
+        console.log(unicode"✅", "Relayer nonce:", relayerNonce);
 
         // Test EIP-712 digest generation
         uint256 testDeadline = block.timestamp + 1 hours;
@@ -87,20 +87,20 @@ contract VerifyScript is Script {
         );
 
         require(digest != bytes32(0), "Invalid message digest");
-        console.log("✅ EIP-712 message digest generation works");
+        console.log(unicode"✅", "EIP-712 message digest generation works");
         console.log("   Test digest:", vm.toString(digest));
 
         console.log("\n6. VERIFYING CONTRACT STATE...");
 
         // 6. Verify initial contract state
         uint256 nextMessageId = source.nextMessageId();
-        console.log("✅ Next message ID:", nextMessageId);
+        console.log(unicode"✅", "Next message ID:", nextMessageId);
         require(nextMessageId == 0, "Unexpected initial message ID");
 
         // Verify block claimability function
         uint256 currentBlock = block.number;
         bool isClaimable = source.isBlockClaimable(currentBlock);
-        console.log("✅ Current block claimable:", isClaimable);
+        console.log(unicode"✅", "Current block claimable:", isClaimable);
         // Current block should not be claimable (not finalized)
         require(!isClaimable, "Current block should not be claimable");
 
@@ -109,19 +109,19 @@ contract VerifyScript is Script {
         // 7. Verify admin roles
         bool sourceAdminRole = source.hasRole(source.DEFAULT_ADMIN_ROLE(), tx.origin);
         bool destAdminRole = dest.hasRole(dest.DEFAULT_ADMIN_ROLE(), tx.origin);
-        console.log("✅ Source admin role:", sourceAdminRole);
-        console.log("✅ Destination admin role:", destAdminRole);
+        console.log(unicode"✅", "Source admin role:", sourceAdminRole);
+        console.log(unicode"✅", "Destination admin role:", destAdminRole);
 
         console.log("\n=== VERIFICATION SUMMARY ===");
-        console.log("✅ Contract Deployment: PASSED");
-        console.log("✅ Relayer Permissions: PASSED");
-        console.log("✅ EIP-712 Configuration: PASSED");
-        console.log("✅ Chain Configuration: PASSED");
-        console.log("✅ Message Flow Simulation: PASSED");
-        console.log("✅ Contract State: PASSED");
-        console.log("✅ Access Control: PASSED");
+        console.log(unicode"✅", "Contract Deployment: PASSED");
+        console.log(unicode"✅", "Relayer Permissions: PASSED");
+        console.log(unicode"✅", "EIP-712 Configuration: PASSED");
+        console.log(unicode"✅", "Chain Configuration: PASSED");
+        console.log(unicode"✅", "Message Flow Simulation: PASSED");
+        console.log(unicode"✅", "Contract State: PASSED");
+        console.log(unicode"✅", "Access Control: PASSED");
 
-        console.log("\n🎉 ALL VERIFICATIONS PASSED!");
+        console.log("\n", unicode"🎉", "ALL VERIFICATIONS PASSED!");
         console.log("The cross-chain messaging system is ready for production use.");
         console.log("\nNext steps:");
         console.log("1. Deploy relayer service");
