@@ -1,0 +1,16 @@
+{
+  "name": "evmrelayer-lite",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": {
+    "name": "0xheartcode",
+    "url": "https://github.com/0xheartcode"
+  },
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.2"
+}

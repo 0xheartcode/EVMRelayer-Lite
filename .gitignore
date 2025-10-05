@@ -1,14 +1,93 @@
-# Compiler files
-cache/
-out/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Ignores development broadcast logs
-!/broadcast
-/broadcast/*/31337/
-/broadcast/**/dry-run/
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.pnp.cjs
+.pnp.loader.mjs
+contracts/lib
+# yarn
+.yarn/*
+yarn-debug.log*
+yarn-error.log*
+.yarn-integrity
+yarn.lock
 
-# Docs
-docs/
+# npm
+package-lock.json
 
-# Dotenv file
-.env
+# testing
+/coverage
+
+# production
+/build
+/dist
+
+# misc
+.DS_Store
+.env.local
+.custom.env
+# log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# parcel-bundler
+/.cache
+.parcel-cache
+
+# next.js
+.next
+out
+
+# nuxt.js
+.nuxt
+dist
+
+# vue.js
+/dist
+.vuepress/dist
+
+# svelte
+/public/build
+
+# storybook
+.out
+.storybook-out
+
+# VS Code
+.vscode
+
+# IDEs and editors
+.idea
+.vscode
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.nfs*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# temporary files
+*.swp
+*.swo
+*.tmp
+
+.eslintcache
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+.vite
+
