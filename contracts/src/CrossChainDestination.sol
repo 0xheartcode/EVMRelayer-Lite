@@ -14,18 +14,17 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
 
     // ============ Roles ============
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    
+
     // ============ EIP-712 Constants ============
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
-    
+    bytes32 public constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
     bytes32 public constant MESSAGE_TYPEHASH = keccak256(
         "CrossChainMessage(uint256 sourceChainId,uint256 destChainId,uint256 messageId,address sender,bytes32 payloadHash,address destContract,uint256 nonce,uint256 deadline)"
     );
-    
+
     bytes32 public immutable DOMAIN_SEPARATOR;
-    bytes32 public immutable SOURCE_DOMAIN_SEPARATOR; 
+    bytes32 public immutable SOURCE_DOMAIN_SEPARATOR;
 
     // ============ Structs ============
     struct ExecutedMessage {
@@ -46,7 +45,7 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
 
     // Message hash => execution details
     mapping(bytes32 => ExecutedMessage) public executedMessages;
-    
+
     // Relayer address => nonce (for replay protection)
     mapping(address => uint256) public relayerNonces;
 
@@ -75,27 +74,15 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
      */
     constructor(uint256 sourceChainId, address sourceContract) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        
+
         // Domain separator for this contract (destination)
         DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256("CrossChainMessenger"),
-                keccak256("1"),
-                block.chainid,
-                address(this)
-            )
+            abi.encode(DOMAIN_TYPEHASH, keccak256("CrossChainMessenger"), keccak256("1"), block.chainid, address(this))
         );
-        
+
         // Domain separator for source contract (for signature verification)
         SOURCE_DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256("CrossChainMessenger"),
-                keccak256("1"),
-                sourceChainId,
-                sourceContract
-            )
+            abi.encode(DOMAIN_TYPEHASH, keccak256("CrossChainMessenger"), keccak256("1"), sourceChainId, sourceContract)
         );
     }
 
@@ -130,20 +117,20 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
     ) external nonReentrant {
         // Check deadline
         if (block.timestamp > deadline) revert SignatureExpired();
-        
+
         // Verify nonce for relayer replay protection
         address relayer = msg.sender;
         if (relayerNonces[relayer] != nonce) {
             revert InvalidNonce(relayerNonces[relayer], nonce);
         }
         relayerNonces[relayer]++;
-        
+
         // Create EIP-712 digest
         bytes32 structHash = keccak256(
             abi.encode(
                 MESSAGE_TYPEHASH,
                 sourceChainId,
-                block.chainid,  // destChainId
+                block.chainid, // destChainId
                 messageId,
                 sender,
                 keccak256(payload),
@@ -152,25 +139,17 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
                 deadline
             )
         );
-        
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", SOURCE_DOMAIN_SEPARATOR, structHash)
-        );
-        
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", SOURCE_DOMAIN_SEPARATOR, structHash));
+
         // Recover signer
         address signer = ecrecover(digest, v, r, s);
         if (signer == address(0)) revert InvalidSignature();
         if (!hasRole(RELAYER_ROLE, signer)) revert UnauthorizedRelayer();
-        
+
         // Calculate message hash for replay protection
-        bytes32 messageHash = calculateMessageHash(
-            sourceChainId,
-            sourceBlockNumber,
-            messageId,
-            sender,
-            payload,
-            destContract
-        );
+        bytes32 messageHash =
+            calculateMessageHash(sourceChainId, sourceBlockNumber, messageId, sender, payload, destContract);
 
         if (processedMessages[messageHash]) revert MessageAlreadyProcessed();
         processedMessages[messageHash] = true;
@@ -192,24 +171,11 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
         });
 
         if (success) {
-            emit MessageExecuted(
-                sourceChainId,
-                messageId,
-                destContract,
-                messageHash,
-                true,
-                returnData
-            );
+            emit MessageExecuted(sourceChainId, messageId, destContract, messageHash, true, returnData);
         } else {
             string memory reason = _getRevertMsg(returnData);
 
-            emit MessageFailed(
-                sourceChainId,
-                messageId,
-                destContract,
-                messageHash,
-                reason
-            );
+            emit MessageFailed(sourceChainId, messageId, destContract, messageHash, reason);
         }
     }
 
@@ -220,11 +186,7 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
      * @param _returnData The return data from failed call
      * @return The revert reason string
      */
-    function _getRevertMsg(bytes memory _returnData)
-        internal
-        pure
-        returns (string memory)
-    {
+    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
         if (_returnData.length < 68) return "Transaction failed";
 
         assembly {
@@ -257,14 +219,7 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
         bytes calldata payload,
         address destContract
     ) public pure returns (bytes32) {
-        return keccak256(abi.encode(
-            sourceChainId,
-            sourceBlockNumber,
-            messageId,
-            sender,
-            payload,
-            destContract
-        ));
+        return keccak256(abi.encode(sourceChainId, sourceBlockNumber, messageId, sender, payload, destContract));
     }
 
     /**
@@ -283,9 +238,9 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
             details = executedMessages[messageHash];
         }
     }
-    
+
     // ============ EIP-712 Helper Functions ============
-    
+
     /**
      * @notice Verify a signature without executing the message
      * @dev Helper function for off-chain verification
@@ -316,14 +271,12 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
                 deadline
             )
         );
-        
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", SOURCE_DOMAIN_SEPARATOR, structHash)
-        );
-        
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", SOURCE_DOMAIN_SEPARATOR, structHash));
+
         signer = ecrecover(digest, v, r, s);
     }
-    
+
     /**
      * @notice Get the current nonce for a relayer
      * @param relayer The relayer address
@@ -332,7 +285,7 @@ contract CrossChainDestination is AccessControl, ReentrancyGuard {
     function getRelayerNonce(address relayer) public view returns (uint256) {
         return relayerNonces[relayer];
     }
-    
+
     /**
      * @notice Get the source domain separator
      * @return The domain separator used for signature verification

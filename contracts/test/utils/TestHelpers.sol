@@ -23,7 +23,7 @@ contract TestHelpers is Test {
     // Test constants
     uint256 constant SOURCE_CHAIN_ID = 1;
     uint256 constant DEST_CHAIN_ID = 2;
-    
+
     CrossChainSource sourceContract;
     CrossChainDestination destContract;
     MockTarget mockTarget;
@@ -32,7 +32,7 @@ contract TestHelpers is Test {
     function setupContracts() internal {
         // Deploy mock target
         mockTarget = new MockTarget();
-        
+
         // Deploy signature utils
         sigUtils = new SignatureUtils();
 
@@ -43,7 +43,7 @@ contract TestHelpers is Test {
         sourceContract.grantRole(sourceContract.RELAYER_ROLE(), relayer);
         vm.stopPrank();
 
-        // Deploy destination contract on destination chain  
+        // Deploy destination contract on destination chain
         vm.chainId(DEST_CHAIN_ID);
         vm.startPrank(admin);
         destContract = new CrossChainDestination(SOURCE_CHAIN_ID, address(sourceContract));
@@ -59,12 +59,8 @@ contract TestHelpers is Test {
         uint256 nonce,
         uint256 deadline
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
-        bytes32 domainSeparator = sigUtils.computeDomainSeparator(
-            "CrossChainMessenger",
-            "1",
-            SOURCE_CHAIN_ID,
-            address(sourceContract)
-        );
+        bytes32 domainSeparator =
+            sigUtils.computeDomainSeparator("CrossChainMessenger", "1", SOURCE_CHAIN_ID, address(sourceContract));
 
         return sigUtils.signMessage(
             RELAYER_PRIVATE_KEY,
@@ -88,12 +84,8 @@ contract TestHelpers is Test {
         uint256 nonce,
         uint256 deadline
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
-        bytes32 domainSeparator = sigUtils.computeDomainSeparator(
-            "CrossChainMessenger",
-            "1",
-            SOURCE_CHAIN_ID,
-            address(sourceContract)
-        );
+        bytes32 domainSeparator =
+            sigUtils.computeDomainSeparator("CrossChainMessenger", "1", SOURCE_CHAIN_ID, address(sourceContract));
 
         return sigUtils.signMessage(
             UNAUTHORIZED_PRIVATE_KEY, // Wrong private key

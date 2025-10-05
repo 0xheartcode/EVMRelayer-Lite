@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import "./utils/TestHelpers.sol";
 
 contract CrossChainDestinationTest is TestHelpers {
-    
     function setUp() public {
         setupContracts();
         vm.chainId(DEST_CHAIN_ID);
@@ -18,14 +17,8 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId,
-            user,
-            payload,
-            address(mockTarget),
-            nonce,
-            deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         vm.prank(relayer);
         destContract.executeMessage(
@@ -48,13 +41,13 @@ contract CrossChainDestinationTest is TestHelpers {
     }
 
     function test_AuthorizedRelayerSignature() public {
-        // Grant relayer role to a new address  
+        // Grant relayer role to a new address
         address newRelayer = vm.addr(0x5);
-        
+
         // Ensure we're on destination chain and admin has the right role
         vm.chainId(DEST_CHAIN_ID);
         assertTrue(destContract.hasRole(destContract.DEFAULT_ADMIN_ROLE(), admin));
-        
+
         // Use startPrank/stopPrank for better context control
         vm.startPrank(admin);
         destContract.grantRole(destContract.RELAYER_ROLE(), newRelayer);
@@ -65,12 +58,8 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        bytes32 domainSeparator = sigUtils.computeDomainSeparator(
-            "CrossChainMessenger",
-            "1",
-            SOURCE_CHAIN_ID,
-            address(sourceContract)
-        );
+        bytes32 domainSeparator =
+            sigUtils.computeDomainSeparator("CrossChainMessenger", "1", SOURCE_CHAIN_ID, address(sourceContract));
 
         (uint8 v, bytes32 r, bytes32 s) = sigUtils.signMessage(
             0x5, // New relayer's private key
@@ -87,17 +76,7 @@ contract CrossChainDestinationTest is TestHelpers {
 
         vm.prank(newRelayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID,
-            101,
-            messageId,
-            user,
-            payload,
-            address(mockTarget),
-            nonce,
-            deadline,
-            v,
-            r,
-            s
+            SOURCE_CHAIN_ID, 101, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
 
         assertEq(mockTarget.getCounter(), 42);
@@ -122,11 +101,10 @@ contract CrossChainDestinationTest is TestHelpers {
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 200, messageId1, user, payload1, address(mockTarget),
-            0, deadline, v1, r1, s1
+            SOURCE_CHAIN_ID, 200, messageId1, user, payload1, address(mockTarget), 0, deadline, v1, r1, s1
         );
 
-        // Second message with nonce 1 
+        // Second message with nonce 1
         (uint8 v2, bytes32 r2, bytes32 s2) = createValidSignature(
             messageId2,
             user,
@@ -138,8 +116,7 @@ contract CrossChainDestinationTest is TestHelpers {
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 201, messageId2, user, payload2, address(mockTarget),
-            1, deadline, v2, r2, s2
+            SOURCE_CHAIN_ID, 201, messageId2, user, payload2, address(mockTarget), 1, deadline, v2, r2, s2
         );
 
         assertEq(destContract.getRelayerNonce(relayer), 2);
@@ -154,16 +131,14 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp - 1; // Expired deadline
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), nonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         expectCustomError(CrossChainDestination.SignatureExpired.selector);
-        
+
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 300, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 300, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
     }
 
@@ -173,18 +148,14 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Use wrong nonce (should be 0, using 5)
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), 5, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), 5, deadline);
 
-        expectCustomErrorWithData(abi.encodeWithSelector(
-            CrossChainDestination.InvalidNonce.selector, 0, 5
-        ));
+        expectCustomErrorWithData(abi.encodeWithSelector(CrossChainDestination.InvalidNonce.selector, 0, 5));
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 400, messageId, user, payload, address(mockTarget),
-            5, deadline, v, r, s
+            SOURCE_CHAIN_ID, 400, messageId, user, payload, address(mockTarget), 5, deadline, v, r, s
         );
     }
 
@@ -194,16 +165,14 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createUnauthorizedSignature(
-            messageId, user, payload, address(mockTarget), nonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createUnauthorizedSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         expectCustomError(CrossChainDestination.UnauthorizedRelayer.selector);
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 500, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 500, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
     }
 
@@ -220,8 +189,7 @@ contract CrossChainDestinationTest is TestHelpers {
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 600, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 600, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
     }
 
@@ -237,8 +205,7 @@ contract CrossChainDestinationTest is TestHelpers {
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 700, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 700, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
     }
 
@@ -248,29 +215,25 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), nonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         // Execute once successfully
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 800, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 800, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
 
         // Try to replay the same message - should fail on message hash, not nonce
         // Create a new signature with incremented nonce but same message details
-        (uint8 v2, bytes32 r2, bytes32 s2) = createValidSignature(
-            messageId, user, payload, address(mockTarget), 1, deadline
-        );
+        (uint8 v2, bytes32 r2, bytes32 s2) =
+            createValidSignature(messageId, user, payload, address(mockTarget), 1, deadline);
 
         expectCustomError(CrossChainDestination.MessageAlreadyProcessed.selector);
-        
+
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 800, messageId, user, payload, address(mockTarget),
-            1, deadline, v2, r2, s2
+            SOURCE_CHAIN_ID, 800, messageId, user, payload, address(mockTarget), 1, deadline, v2, r2, s2
         );
     }
 
@@ -282,21 +245,22 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), nonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         vm.expectEmit(true, true, true, true);
         emit CrossChainDestination.MessageExecuted(
-            SOURCE_CHAIN_ID, messageId, address(mockTarget), 
+            SOURCE_CHAIN_ID,
+            messageId,
+            address(mockTarget),
             destContract.calculateMessageHash(SOURCE_CHAIN_ID, 900, messageId, user, payload, address(mockTarget)),
-            true, ""
+            true,
+            ""
         );
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 900, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 900, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
     }
 
@@ -309,27 +273,26 @@ contract CrossChainDestinationTest is TestHelpers {
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), nonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), nonce, deadline);
 
         vm.expectEmit(true, true, true, true);
         emit CrossChainDestination.MessageFailed(
-            SOURCE_CHAIN_ID, messageId, address(mockTarget),
+            SOURCE_CHAIN_ID,
+            messageId,
+            address(mockTarget),
             destContract.calculateMessageHash(SOURCE_CHAIN_ID, 1000, messageId, user, payload, address(mockTarget)),
             "Mock revert"
         );
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 1000, messageId, user, payload, address(mockTarget),
-            nonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 1000, messageId, user, payload, address(mockTarget), nonce, deadline, v, r, s
         );
 
         // Message should still be marked as processed even if execution failed
-        bytes32 messageHash = destContract.calculateMessageHash(
-            SOURCE_CHAIN_ID, 1000, messageId, user, payload, address(mockTarget)
-        );
+        bytes32 messageHash =
+            destContract.calculateMessageHash(SOURCE_CHAIN_ID, 1000, messageId, user, payload, address(mockTarget));
         assertTrue(destContract.isMessageProcessed(messageHash));
     }
 
@@ -337,19 +300,17 @@ contract CrossChainDestinationTest is TestHelpers {
 
     function test_NonceIncrementAfterExecution() public {
         uint256 initialNonce = destContract.getRelayerNonce(relayer);
-        
+
         uint256 messageId = 900;
         bytes memory payload = abi.encodeCall(MockTarget.emptyFunction, ());
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = createValidSignature(
-            messageId, user, payload, address(mockTarget), initialNonce, deadline
-        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            createValidSignature(messageId, user, payload, address(mockTarget), initialNonce, deadline);
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 1100, messageId, user, payload, address(mockTarget),
-            initialNonce, deadline, v, r, s
+            SOURCE_CHAIN_ID, 1100, messageId, user, payload, address(mockTarget), initialNonce, deadline, v, r, s
         );
 
         assertEq(destContract.getRelayerNonce(relayer), initialNonce + 1);
@@ -357,7 +318,7 @@ contract CrossChainDestinationTest is TestHelpers {
 
     function test_DifferentRelayerNonces() public {
         address relayer2 = vm.addr(0x6);
-        
+
         vm.chainId(DEST_CHAIN_ID);
         vm.startPrank(admin);
         destContract.grantRole(destContract.RELAYER_ROLE(), relayer2);
@@ -371,14 +332,12 @@ contract CrossChainDestinationTest is TestHelpers {
         bytes memory payload1 = abi.encodeCall(MockTarget.receiveValue, (100));
         uint256 deadline = block.timestamp + 1 hours;
 
-        (uint8 v1, bytes32 r1, bytes32 s1) = createValidSignature(
-            messageId1, user, payload1, address(mockTarget), 0, deadline
-        );
+        (uint8 v1, bytes32 r1, bytes32 s1) =
+            createValidSignature(messageId1, user, payload1, address(mockTarget), 0, deadline);
 
         vm.prank(relayer);
         destContract.executeMessage(
-            SOURCE_CHAIN_ID, 1200, messageId1, user, payload1, address(mockTarget),
-            0, deadline, v1, r1, s1
+            SOURCE_CHAIN_ID, 1200, messageId1, user, payload1, address(mockTarget), 0, deadline, v1, r1, s1
         );
 
         // First relayer nonce should increment, second should remain 0
