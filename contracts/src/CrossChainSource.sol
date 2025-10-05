@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CrossChainSource is AccessControl, ReentrancyGuard {
     // ============ Custom Errors ============
@@ -70,7 +70,7 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
         // Extra information (nice to have for debugging/verification)
         bytes32 destBlockHash;     // Block containing the transaction
         uint256 destBlockNumber;   // Destination block number
-        address relayerEOA;        // Address that sent the transaction
+        address relayerEoa;        // Address that sent the transaction
         string failureReason;      // Failure reason if success=false
     }
 
@@ -356,6 +356,9 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
      * @return available True if the block can be claimed
      */
     function isBlockClaimable(uint256 blockNumber) external view returns (bool) {
+        // Block must be finalized first
+        if (blockNumber >= block.number) return false;
+        
         BlockClaim storage claim = blockClaims[blockNumber];
         return blockMessageCounts[blockNumber] > 0 && (
             claim.state == BlockState.UNCLAIMED ||
