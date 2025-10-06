@@ -238,6 +238,8 @@ export class ProofSubmitter {
     try {
       logger.info(`Submitting ${proofs.length} delivery proofs for block ${blockNumber}`);
 
+      console.log(`Web3 Call: confirmBlockDelivery(blockNumber: ${blockNumber}, proofs: [${proofs.length} delivery proofs])`);
+      
       // First simulate the transaction
       const { request } = await sourceChain.publicClient.simulateContract({
         account: sourceChain.account,
