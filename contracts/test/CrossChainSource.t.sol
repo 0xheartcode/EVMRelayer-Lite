@@ -321,7 +321,252 @@ contract CrossChainSourceTest is TestHelpers {
         assertTrue(delivered);
         assertTrue(success);
     }
+    // ============ ENHANCED VIEW FUNCTIONS TESTS ============
+    // forge coverage increase
 
+    function test_GetMessageStatus() public {
+        // Submit message
+        bytes memory payload = abi.encodeCall(MockTarget.receiveMessage, ("Status test"));
+        vm.prank(user);
+        sourceContract.submitMessage(payload, address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        // Test status before claiming
+        CrossChainSource.MessageStatus memory status = sourceContract.getMessageStatus(0);
+        assertEq(status.blockNumber, sourceBlockNumber);
+        assertEq(status.indexInBlock, 0);
+        assertFalse(status.delivered);
+        assertEq(uint256(status.blockState), uint256(CrossChainSource.BlockState.UNCLAIMED));
+
+        // Claim and deliver
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+
+        CrossChainSource.DeliveryProof[] memory proofs = new CrossChainSource.DeliveryProof[](1);
+        proofs[0] = CrossChainSource.DeliveryProof({
+            destTxHash: keccak256("success_tx"),
+            receiptsRoot: keccak256("receipts"),
+            success: true,
+            destBlockHash: blockhash(block.number - 1),
+            destBlockNumber: block.number,
+            relayerEoa: relayer,
+            failureReason: ""
+        });
+
+        vm.prank(relayer);
+        sourceContract.confirmBlockDelivery(sourceBlockNumber, proofs);
+
+        // Test final status
+        status = sourceContract.getMessageStatus(0);
+        assertTrue(status.delivered);
+        assertTrue(status.success);
+        assertEq(uint256(status.blockState), uint256(CrossChainSource.BlockState.DELIVERED));
+    }
+
+    function test_GetMessageStatus_InvalidMessageId() public {
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.MessageNotFound.selector));
+        sourceContract.getMessageStatus(999);
+    }
+
+    function test_GetBlockFailureHistory() public {
+        // Submit message
+        vm.prank(user);
+        sourceContract.submitMessage("failure test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        // Initially no failures
+        (uint256 attempts, string[] memory reasons) = sourceContract.getBlockFailureHistory(sourceBlockNumber);
+        assertEq(attempts, 0);
+        assertEq(reasons.length, 0);
+
+        // Claim and fail multiple times
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+        vm.prank(relayer);
+        sourceContract.markBlockFailed(sourceBlockNumber, "Network timeout");
+
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+        vm.prank(relayer);
+        sourceContract.markBlockFailed(sourceBlockNumber, "Gas failed");
+
+        // Check failure history
+        (attempts, reasons) = sourceContract.getBlockFailureHistory(sourceBlockNumber);
+        assertEq(attempts, 2);
+        assertEq(reasons[0], "Network timeout");
+        assertEq(reasons[1], "Gas failed");
+    }
+
+    function test_GetFailedBlocks_InvalidRange() public {
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.InvalidRange.selector));
+        sourceContract.getFailedBlocks(100, 50);
+    }
+
+    function test_GetProcessingGaps_InvalidRange() public {
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.InvalidRange.selector));
+        sourceContract.getProcessingGaps(100, 50);
+    }
+
+    // ============ TIMEOUT AND EXPIRATION TESTS ============
+
+    function test_ClaimTimeout() public {
+        vm.prank(user);
+        sourceContract.submitMessage("timeout test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        // Claim block
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+
+        // Fast forward past timeout
+        vm.warp(block.timestamp + sourceContract.CLAIM_TIMEOUT() + 1);
+
+        // Block should be claimable again
+        assertTrue(sourceContract.isBlockClaimable(sourceBlockNumber));
+
+        // Second relayer can claim expired block
+        vm.expectEmit(true, true, false, false);
+        emit CrossChainSource.ClaimExpired(sourceBlockNumber, relayer);
+
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+    }
+
+    // ============ ERROR CONDITION TESTS ============
+
+    function test_RevertOnProofCountMismatch() public {
+        vm.prank(user);
+        sourceContract.submitMessage("proof test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+
+        // Wrong number of proofs
+        CrossChainSource.DeliveryProof[] memory proofs = new CrossChainSource.DeliveryProof[](2);
+        proofs[0] = CrossChainSource.DeliveryProof({
+            destTxHash: keccak256("tx1"),
+            receiptsRoot: keccak256("receipts1"),
+            success: true,
+            destBlockHash: blockhash(block.number - 1),
+            destBlockNumber: block.number,
+            relayerEoa: relayer,
+            failureReason: ""
+        });
+        proofs[1] = CrossChainSource.DeliveryProof({
+            destTxHash: keccak256("tx2"),
+            receiptsRoot: keccak256("receipts2"),
+            success: true,
+            destBlockHash: blockhash(block.number - 1),
+            destBlockNumber: block.number,
+            relayerEoa: relayer,
+            failureReason: ""
+        });
+
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.ProofCountMismatch.selector, 1, 2));
+        vm.prank(relayer);
+        sourceContract.confirmBlockDelivery(sourceBlockNumber, proofs);
+    }
+
+    function test_RevertOnGetMessageBlock_InvalidId() public {
+        // Submit a message first (ID 0 will be valid)
+        vm.prank(user);
+        sourceContract.submitMessage("test", address(mockTarget), DEST_CHAIN_ID);
+
+        // Now ID 1 should fail (doesn't exist)
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.MessageNotFound.selector));
+        sourceContract.getMessageBlock(1);
+
+        // Also test with higher ID
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.MessageNotFound.selector));
+        sourceContract.getMessageBlock(999);
+    }
+
+    function test_CannotMarkFailedFromWrongState() public {
+        vm.prank(user);
+        sourceContract.submitMessage("test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        // Try to mark as failed without claiming first
+        vm.expectRevert(abi.encodeWithSelector(CrossChainSource.NotClaimOwner.selector));
+        vm.prank(relayer);
+        sourceContract.markBlockFailed(sourceBlockNumber, "Should fail");
+    }
+
+    function test_IsMessageDelivered() public {
+        vm.prank(user);
+        sourceContract.submitMessage("delivered test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        // Initially not delivered
+        assertFalse(sourceContract.isMessageDelivered(0));
+
+        // Claim and deliver
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+
+        CrossChainSource.DeliveryProof[] memory proofs = new CrossChainSource.DeliveryProof[](1);
+        proofs[0] = CrossChainSource.DeliveryProof({
+            destTxHash: keccak256("success_tx"),
+            receiptsRoot: keccak256("receipts"),
+            success: true,
+            destBlockHash: blockhash(block.number - 1),
+            destBlockNumber: block.number,
+            relayerEoa: relayer,
+            failureReason: ""
+        });
+
+        vm.prank(relayer);
+        sourceContract.confirmBlockDelivery(sourceBlockNumber, proofs);
+
+        // Now should be delivered
+        assertTrue(sourceContract.isMessageDelivered(0));
+    }
+
+    function test_GetBlockDeliveryStatus() public {
+        vm.prank(user);
+        sourceContract.submitMessage("status test", address(mockTarget), DEST_CHAIN_ID);
+
+        uint256 sourceBlockNumber = sourceContract.getMessageBlock(0);
+        vm.roll(sourceBlockNumber + 1);
+
+        vm.prank(relayer);
+        sourceContract.claimBlock(sourceBlockNumber, 1);
+
+        CrossChainSource.DeliveryProof[] memory proofs = new CrossChainSource.DeliveryProof[](1);
+        proofs[0] = CrossChainSource.DeliveryProof({
+            destTxHash: keccak256("success_tx"),
+            receiptsRoot: keccak256("receipts"),
+            success: true,
+            destBlockHash: blockhash(block.number - 1),
+            destBlockNumber: block.number,
+            relayerEoa: relayer,
+            failureReason: ""
+        });
+
+        vm.prank(relayer);
+        sourceContract.confirmBlockDelivery(sourceBlockNumber, proofs);
+
+        (CrossChainSource.BlockState state, uint256 successCount, uint256 failureCount, uint256 totalMessages) =
+            sourceContract.getBlockDeliveryStatus(sourceBlockNumber);
+
+        assertEq(uint256(state), uint256(CrossChainSource.BlockState.DELIVERED));
+        assertEq(successCount, 1);
+        assertEq(failureCount, 0);
+        assertEq(totalMessages, 1);
+    }
     // ============ EIP-712 HELPER TESTS ============
 
     function test_GetMessageDigest() public {

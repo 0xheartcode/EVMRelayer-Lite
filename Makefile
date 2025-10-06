@@ -231,7 +231,7 @@ dockercompose-up: ## Start relayer with Docker Compose (build and logs).
 	export DOCKER_IMAGE_NAME=DOCKER_EVMRELAYER_LITE && \
 	docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml up --build
 
-.PHONY: dockercompose-up-detached
+.PHONY: dockercompose-up-d
 dockercompose-up-detached: ## Start relayer with Docker Compose detached.
 	@echo "$(GREEN)Starting relayer with Docker Compose...$(NC)"
 	export DOCKER_IMAGE_NAME=DOCKER_EVMRELAYER_LITE && \
@@ -258,6 +258,11 @@ dockercompose-clean: ## Clean Docker containers, volumes and images.
 gas-report: ## Generate gas usage report.
 	@echo "$(GREEN)Generating gas report...$(NC)"
 	@cd contracts && forge test --gas-report
+
+.PHONY: test-coverage
+test-coverage: ## Generate test coverage report.
+	@echo "$(GREEN)Generating test coverage report...$(NC)"
+	@cd contracts && forge coverage --ir-minimum | rg "╭|File|=|╰|src/"
 
 .PHONY: reload-echo-env
 reload-echo-env: ## Reload .env file and validate environment configuration.
