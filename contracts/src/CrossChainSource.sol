@@ -35,8 +35,9 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
     enum BlockState {
         UNCLAIMED, // Has messages, no relayer assigned
         CLAIMED, // Relayer claimed this block
-        DELIVERED, // Relayer confirmed delivery
-        FAILED, // Delivery failed, can be retried
+        DELIVERED, // All messages delivered successfully
+        PARTIALLY_DELIVERED, // Some messages delivered, some failed
+        FAILED, // Delivery failed completely, can be retried
         EXPIRED // Claim expired without delivery
 
     }
@@ -109,6 +110,9 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
 
     // Message ID => block number (for reverse lookup)
     mapping(uint256 => uint256) public messageToBlock;
+
+    // Message ID => delivery status (true if successfully delivered)
+    mapping(uint256 => bool) public messageDelivered;
 
     // Block failure tracking
     mapping(uint256 => uint256) public blockFailureCount;
@@ -244,6 +248,9 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
             uint256 messageId = blockMessages[blockNumber][i];
             deliveryProofs[messageId] = proofs[i];
 
+            // Track individual message delivery status
+            messageDelivered[messageId] = proofs[i].success;
+
             if (proofs[i].success) {
                 successCount++;
             } else {
@@ -251,7 +258,17 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
             }
         }
 
-        claim.state = BlockState.DELIVERED;
+        // Set state based on delivery results
+        if (failureCount == 0) {
+            // All messages delivered successfully
+            claim.state = BlockState.DELIVERED;
+        } else if (successCount > 0) {
+            // Mixed results - some success, some failure
+            claim.state = BlockState.PARTIALLY_DELIVERED;
+        } else {
+            // All messages failed
+            claim.state = BlockState.FAILED;
+        }
 
         emit BlockDelivered(blockNumber, msg.sender, successCount, failureCount);
     }
@@ -328,13 +345,80 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
         uint256 blockNumber = messageToBlock[messageId];
         BlockClaim storage claim = blockClaims[blockNumber];
 
-        delivered = claim.state == BlockState.DELIVERED;
+        // Message is delivered if block is DELIVERED, PARTIALLY_DELIVERED, or FAILED (all mean proofs were submitted)
+        delivered = claim.state == BlockState.DELIVERED || claim.state == BlockState.PARTIALLY_DELIVERED
+            || claim.state == BlockState.FAILED;
         if (delivered) {
             success = deliveryProofs[messageId].success;
         }
     }
 
     // ============ Enhanced View Functions ============
+
+    /**
+     * @notice Check if a specific message was successfully delivered
+     * @param messageId The message ID to check
+     * @return delivered True if message was delivered successfully
+     */
+    function isMessageDelivered(uint256 messageId) external view returns (bool delivered) {
+        return messageDelivered[messageId];
+    }
+
+    /**
+     * @notice Get detailed block delivery status
+     * @param blockNumber The block number to check
+     * @return state The current block state
+     * @return successCount Number of successfully delivered messages
+     * @return failureCount Number of failed messages
+     * @return totalMessages Total number of messages in block
+     */
+    function getBlockDeliveryStatus(uint256 blockNumber)
+        external
+        view
+        returns (BlockState state, uint256 successCount, uint256 failureCount, uint256 totalMessages)
+    {
+        BlockClaim memory claim = blockClaims[blockNumber];
+        state = claim.state;
+        totalMessages = claim.messageCount;
+
+        // Count successes and failures if block has been processed
+        if (state == BlockState.DELIVERED || state == BlockState.PARTIALLY_DELIVERED || state == BlockState.FAILED) {
+            for (uint256 i = 0; i < totalMessages; i++) {
+                uint256 messageId = blockMessages[blockNumber][i];
+                if (messageDelivered[messageId]) {
+                    successCount++;
+                } else {
+                    failureCount++;
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice Get list of failed message IDs for a block
+     * @param blockNumber The block number to check
+     * @return failedMessages Array of message IDs that failed delivery
+     */
+    function getFailedMessagesForBlock(uint256 blockNumber) external view returns (uint256[] memory failedMessages) {
+        uint256 messageCount = blockMessageCounts[blockNumber];
+        uint256[] memory tempFailures = new uint256[](messageCount);
+        uint256 failureCount = 0;
+
+        for (uint256 i = 0; i < messageCount; i++) {
+            uint256 messageId = blockMessages[blockNumber][i];
+            if (!messageDelivered[messageId] && deliveryProofs[messageId].destTxHash != bytes32(0)) {
+                // Message has proof but marked as failed
+                tempFailures[failureCount] = messageId;
+                failureCount++;
+            }
+        }
+
+        // Create properly sized array
+        failedMessages = new uint256[](failureCount);
+        for (uint256 i = 0; i < failureCount; i++) {
+            failedMessages[i] = tempFailures[i];
+        }
+    }
 
     /**
      * @notice Get complete status information for a message
@@ -352,7 +436,8 @@ contract CrossChainSource is AccessControl, ReentrancyGuard {
         return MessageStatus({
             blockNumber: blockNum,
             indexInBlock: message.indexInBlock,
-            delivered: claim.state == BlockState.DELIVERED,
+            delivered: claim.state == BlockState.DELIVERED || claim.state == BlockState.PARTIALLY_DELIVERED
+                || claim.state == BlockState.FAILED,
             success: proof.success,
             destTxHash: proof.destTxHash,
             blockState: claim.state,
