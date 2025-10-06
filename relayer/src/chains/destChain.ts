@@ -115,7 +115,17 @@ export class DestinationChainClient {
     try {
       logger.info(`Executing message ${messageId} to ${destContract}`);
 
-      console.log(`Web3 Call: executeMessage(sourceChainId: ${sourceChainId}, sourceBlockNumber: ${sourceBlockNumber}, messageId: ${messageId}, sender: ${sender}, destContract: ${destContract}, nonce: ${nonce}, deadline: ${deadline})`);
+      console.log(`Web3 Call: executeMessage(\n` +
+        `  sourceChainId: ${sourceChainId},\n` +
+        `  sourceBlockNumber: ${sourceBlockNumber},\n` +
+        `  messageId: ${messageId},\n` +
+        `  sender: ${sender},\n` +
+        `  payload: ${payload},\n` +
+        `  destContract: ${destContract},\n` +
+        `  nonce: ${nonce},\n` +
+        `  deadline: ${deadline},\n` +
+        `  signature: { v: ${v}, r: ${r}, s: ${s} }\n` +
+        `)`);
       
       // First simulate the transaction
       const { request } = await this.publicClient.simulateContract({

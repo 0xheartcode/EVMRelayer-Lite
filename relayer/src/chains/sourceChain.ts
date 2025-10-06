@@ -148,7 +148,9 @@ export class SourceChainClient {
    */
   async getMessage(messageId: bigint): Promise<Message | null> {
     try {
-      console.log(`Web3 Call: getMessage(messageId: ${messageId})`);
+      console.log(`Web3 Call: getMessage(\n` +
+        `  messageId: ${messageId}\n` +
+        `)`);
       
       const result = await this.publicClient.readContract({
         address: this.contractAddress,
@@ -177,7 +179,10 @@ export class SourceChainClient {
    */
   async getMessageEvents(blockNumber: bigint): Promise<MessageSubmittedEvent[]> {
     try {
-      console.log(`Web3 Call: getLogs(block: ${blockNumber}, event: MessageSubmitted)`);
+      console.log(`Web3 Call: getLogs(\n` +
+        `  blockNumber: ${blockNumber},\n` +
+        `  event: MessageSubmitted\n` +
+        `)`);
       
       const logs = await this.publicClient.getLogs({
         address: this.contractAddress,
@@ -212,7 +217,10 @@ export class SourceChainClient {
     try {
       logger.info(`Claiming block ${blockNumber} with ${expectedMessageCount} messages`);
       
-      console.log(`Web3 Call: claimBlock(${blockNumber}, ${expectedMessageCount})`);
+      console.log(`Web3 Call: claimBlock(\n` +
+        `  blockNumber: ${blockNumber},\n` +
+        `  expectedMessageCount: ${expectedMessageCount}\n` +
+        `)`);
       
       const { request } = await this.publicClient.simulateContract({
         account: this.account,

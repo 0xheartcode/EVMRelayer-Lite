@@ -69,7 +69,7 @@ class Logger {
   }
 
   tx(hash: string, message: string): void {
-    this.info(`${colors.magenta}[Tx ${hash.slice(0, 10)}...]${colors.reset} ${message}`);
+    this.info(`${colors.magenta}[Tx ${hash}]${colors.reset} ${message}`);
   }
 
   chain(chainId: number, message: string): void {
