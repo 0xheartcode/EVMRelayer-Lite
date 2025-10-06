@@ -155,12 +155,14 @@ export class SourceChainClient {
         args: [messageId],
       }) as any[];
 
+      // Contract returns: [id, sender, payload, destContract, destChainId, timestamp, blockNumber, indexInBlock]
+      // Fixed mapping to use correct indices:
       return {
-        sender: result[0],
-        destChainId: result[1],
-        destContract: result[2],
-        payload: result[3],
-        blockNumber: result[4],
+        sender: result[1],          // index 1: sender
+        destChainId: result[4],     // index 4: destChainId  
+        destContract: result[3],    // index 3: destContract
+        payload: result[2],         // index 2: payload
+        blockNumber: result[6],     // index 6: blockNumber
       };
     } catch (error) {
       logger.error(`Failed to get message ${messageId}`, error);

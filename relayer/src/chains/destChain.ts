@@ -97,9 +97,11 @@ export class DestinationChainClient {
 
   /**
    * Execute a cross-chain message
+   * Fixed to include sourceBlockNumber parameter as required by the contract
    */
   async executeMessage(
     sourceChainId: bigint,
+    sourceBlockNumber: bigint, 
     messageId: bigint,
     sender: Address,
     payload: `0x${string}`,
@@ -121,6 +123,7 @@ export class DestinationChainClient {
         functionName: 'executeMessage',
         args: [
           sourceChainId,
+          sourceBlockNumber,
           messageId,
           sender,
           payload,
@@ -188,6 +191,7 @@ export class DestinationChainClient {
   async executeMessages(
     messages: Array<{
       sourceChainId: bigint;
+      sourceBlockNumber: bigint;
       messageId: bigint;
       sender: Address;
       payload: `0x${string}`;
@@ -203,6 +207,7 @@ export class DestinationChainClient {
     for (const msg of messages) {
       const result = await this.executeMessage(
         msg.sourceChainId,
+        msg.sourceBlockNumber, 
         msg.messageId,
         msg.sender,
         msg.payload,
@@ -251,6 +256,7 @@ export class DestinationChainClient {
    */
   async estimateGas(
     sourceChainId: bigint,
+    sourceBlockNumber: bigint, 
     messageId: bigint,
     sender: Address,
     payload: `0x${string}`,
@@ -269,6 +275,7 @@ export class DestinationChainClient {
         functionName: 'executeMessage',
         args: [
           sourceChainId,
+          sourceBlockNumber,
           messageId,
           sender,
           payload,

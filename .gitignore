@@ -3,6 +3,7 @@
 # dependencies
 /relayer/node_modules
 /relayer/.pnp
+/relayer/relayer-state.json
 .pnp.js
 .pnp.cjs
 .pnp.loader.mjs

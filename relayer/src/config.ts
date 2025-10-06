@@ -4,7 +4,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 
 // Load environment variables
-const envPath = join(__dirname, '../../.env');
+const envPath = join(__dirname, '../.env');
 if (existsSync(envPath)) {
   loadEnv({ path: envPath });
 } else {

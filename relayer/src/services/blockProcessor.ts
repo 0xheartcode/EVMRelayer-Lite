@@ -1,8 +1,9 @@
-import { Address } from 'viem';
+import { Address, isAddress, keccak256 } from 'viem';
 import { sourceChain, Message } from '../chains/sourceChain';
 import { destChain } from '../chains/destChain';
 import { logger } from '../utils/logger';
 import { RelayerState } from '../state/relayerState';
+import { getDomain, MESSAGE_TYPE } from '../utils/eip712';
 import config from '../config';
 
 export interface ProcessedMessage {
@@ -21,6 +22,34 @@ export interface BlockProcessingResult {
   successCount: number;
   failureCount: number;
   completed: boolean;
+}
+
+/**
+ * Utility function to convert various address formats to proper Address type
+ */
+function normalizeAddress(addr: any): Address {
+  if (typeof addr === 'string') {
+    // If it's already a properly formatted address
+    if (addr.startsWith('0x') && addr.length === 42) {
+      return addr as Address;
+    }
+    // If it's a short string number like "0", "1", etc.
+    if (/^\d+$/.test(addr)) {
+      const num = BigInt(addr);
+      return `0x${num.toString(16).padStart(40, '0')}` as Address;
+    }
+    // If it's a hex string without 0x prefix
+    if (/^[0-9a-fA-F]+$/.test(addr)) {
+      return `0x${addr.padStart(40, '0')}` as Address;
+    }
+  }
+  
+  if (typeof addr === 'number' || typeof addr === 'bigint') {
+    const num = BigInt(addr);
+    return `0x${num.toString(16).padStart(40, '0')}` as Address;
+  }
+  
+  throw new Error(`Cannot normalize address: ${addr} (type: ${typeof addr})`);
 }
 
 export class BlockProcessor {
@@ -117,8 +146,8 @@ export class BlockProcessor {
       logger.info(`Processing message ${messageId} from block ${blockNumber}`);
 
       // Get message details from source chain
-      const message = await sourceChain.getMessage(messageId);
-      if (!message) {
+      const rawMessage = await sourceChain.getMessage(messageId);
+      if (!rawMessage) {
         return {
           messageId,
           message: {} as Message,
@@ -128,25 +157,68 @@ export class BlockProcessor {
         };
       }
 
+      // Normalize addresses in the message
+      let message: Message;
+      try {
+        message = {
+          ...rawMessage,
+          sender: normalizeAddress(rawMessage.sender),
+          destContract: normalizeAddress(rawMessage.destContract),
+        };
+
+        // Validate the normalized addresses
+        if (!isAddress(message.sender)) {
+          throw new Error(`Invalid sender address after normalization: ${message.sender}`);
+        }
+        if (!isAddress(message.destContract)) {
+          throw new Error(`Invalid destContract address after normalization: ${message.destContract}`);
+        }
+
+        logger.debug(`Message ${messageId} addresses normalized:`, {
+          sender: `${rawMessage.sender} -> ${message.sender}`,
+          destContract: `${rawMessage.destContract} -> ${message.destContract}`,
+        });
+
+      } catch (addressError: any) {
+        logger.error(`Address normalization failed for message ${messageId}`, addressError);
+        return {
+          messageId,
+          message: rawMessage,
+          deliveryHash: null,
+          success: false,
+          error: `Address validation failed: ${addressError.message}`,
+        };
+      }
+
       // Get current relayer nonce
       const nonce = await destChain.getRelayerNonce(config.relayer.address);
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour from now
 
-      // Generate EIP-712 message digest for signing
-      const digest = await sourceChain.getMessageDigest(
-        message.destChainId,
-        messageId,
-        message.sender,
-        message.payload,
-        message.destContract,
-        nonce,
-        deadline
+      // Create the EIP-712 domain (use SOURCE chain parameters)
+      const domain = getDomain(
+        config.sourceChain.chainId,
+        config.sourceChain.contractAddress
       );
 
-      // Sign the digest using the wallet client
-      const signature = await sourceChain.walletClient.signMessage({
+      // Create the message object for EIP-712 signing
+      const messageObject = {
+        sourceChainId: BigInt(config.sourceChain.chainId),
+        destChainId: message.destChainId,
+        messageId,
+        sender: message.sender,
+        payloadHash: keccak256(message.payload),
+        destContract: message.destContract,
+        nonce,
+        deadline,
+      };
+
+      // Sign with EIP-712 typed data (NOT raw message)
+      const signature = await sourceChain.walletClient.signTypedData({
         account: sourceChain.account,
-        message: { raw: digest },
+        domain,
+        types: MESSAGE_TYPE,
+        primaryType: 'CrossChainMessage',
+        message: messageObject,
       });
 
       // Parse signature components
@@ -155,8 +227,10 @@ export class BlockProcessor {
       const v = parseInt(signature.slice(130, 132), 16);
 
       // Execute message on destination chain
+      // Fixed: Added missing sourceBlockNumber parameter
       const execution = await destChain.executeMessage(
         BigInt(config.sourceChain.chainId),
+        blockNumber,  // sourceBlockNumber - Added missing parameter
         messageId,
         message.sender,
         message.payload,
