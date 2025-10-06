@@ -1,0 +1,34 @@
+# Use official Node.js runtime based on slim for better library compatibility
+FROM node:22-slim
+
+
+# Set the working directory
+WORKDIR /app
+
+# Enable corepack and prepare pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package.json and pnpm-lock.yaml first for better layer caching
+COPY relayer/package.json relayer/pnpm-lock.yaml ./
+
+# Install dependencies
+# Use --frozen-lockfile to ensure dependencies match lockfile exactly
+RUN pnpm install --frozen-lockfile
+
+# Copy source files and configuration
+COPY relayer/src ./src
+COPY relayer/tsconfig.json ./
+COPY relayer/.env ./.env
+
+# Build the TypeScript application
+RUN pnpm run build
+
+# Expose health check port
+EXPOSE 8080
+
+# Health check using the built-in /health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Command to run the relayer
+CMD ["pnpm", "start"]

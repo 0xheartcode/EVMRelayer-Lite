@@ -1,0 +1,32 @@
+services:
+  # Cross-Chain Message Relayer
+  relayer:
+    build:
+      context: ../../../
+      dockerfile: ./relayer/utils/dockerfiles/Dockerfile.relayer
+    container_name: evmrelayer-lite
+    environment:
+      # Override RPC URLs to connect to host chains from Docker
+      - RPC_URL_ONE=http://host.docker.internal:8545
+      - RPC_URL_TWO=http://host.docker.internal:8546
+      
+      # Override state file location for Docker volume
+      - STATE_FILE=/app/data/relayer-state.json
+      
+      # Docker-specific overrides
+      - NODE_ENV=production
+    ports:
+      - "8080:8080"  # Health check and API endpoints
+    restart: "no"  # Don't restart on failure - change to "unless-stopped" for production persistence
+    volumes:
+      # Mount relayer state for persistence
+      - relayer-data:/app/data
+    labels:
+      - "com.example.description=Cross-chain message relayer"
+      - "com.example.service=relayer"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  relayer-data:
+    driver: local
