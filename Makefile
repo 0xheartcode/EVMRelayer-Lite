@@ -116,6 +116,30 @@ verify-dest: ## Run verification checks on Chain Two (Destination).
 .PHONY: verify
 verify: verify-source verify-dest ## Run verification checks on both chains.
 	@echo "$(GREEN)Verified both chains!$(NC)"
+# ================
+##@ Message Testing Commands
+
+.PHONY: send-message
+send-message: ## Send a test message from Chain One to Chain Two.
+	@$(call check_env_var,RPC_URL_ONE)
+	@$(call check_env_var,SOURCE_CONTRACT)
+	@$(call check_env_var,DEST_CONTRACT)
+	@$(call check_env_var,USER_PRIVATE_KEY)
+	@echo "$(GREEN)Sending test message from Chain One...$(NC)"
+	@cd contracts && forge script script/integration/SendMessageScript.s.sol --rpc-url $(RPC_URL_ONE) --broadcast -vvv
+
+.PHONY: send-custom-message
+send-custom-message: ## Send a custom message (use MESSAGE="your text" make send-custom-message).
+	@$(call check_env_var,RPC_URL_ONE)
+	@$(call check_env_var,SOURCE_CONTRACT)
+	@$(call check_env_var,DEST_CONTRACT)
+	@$(call check_env_var,USER_PRIVATE_KEY)
+	@if [ -z "$(MESSAGE)" ]; then \
+		echo "$(RED)Error: MESSAGE variable not set. Use: MESSAGE='your text' make send-custom-message$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Sending custom message: $(MESSAGE)$(NC)"
+	@cd contracts && MESSAGE="$(MESSAGE)" forge script script/integration/SendMessageScript.s.sol --rpc-url $(RPC_URL_ONE) --broadcast -vvv
 
 # ================
 ##@ Dependencies

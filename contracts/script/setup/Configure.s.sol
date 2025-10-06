@@ -7,6 +7,7 @@ import "../../src/CrossChainDestination.sol";
 
 contract ConfigureScript is Script {
     function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address sourceAddr = vm.envAddress("SOURCE_CONTRACT");
         address destAddr = vm.envAddress("DEST_CONTRACT");
         address relayer = vm.envAddress("RELAYER_ADDRESS");
@@ -16,7 +17,7 @@ contract ConfigureScript is Script {
         console.log("Destination Contract:", destAddr);
         console.log("Relayer Address:", relayer);
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployerPrivateKey);
 
         CrossChainSource source = CrossChainSource(sourceAddr);
         CrossChainDestination dest = CrossChainDestination(destAddr);
