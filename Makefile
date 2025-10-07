@@ -62,9 +62,6 @@ install: check-deps ## Install and build entire project from scratch - default t
 	@cd relayer && pnpm build
 	@echo "$(GREEN)Project installation and build completed successfully!$(NC)"
 
-.PHONY: setup
-setup: deploy configure verify ## Run complete cross-chain setup (deploy + configure + verify).
-	@echo "$(GREEN)Cross-chain messaging system setup completed!$(NC)"
 
 # ================
 ##@ Smart Contracts - Development Commands
@@ -78,6 +75,10 @@ build: ## Compile contracts.
 clean: ## Clean build artifacts.
 	@echo "$(GREEN)Cleaning build artifacts...$(NC)"
 	@cd contracts && forge clean
+
+.PHONY: setup
+setup: deploy configure verify ## Run complete cross-chain setup (deploy + configure + verify).
+	@echo "$(GREEN)Cross-chain messaging system setup completed!$(NC)"
 
 # ================
 ##@ Smart Contracts - Setup Commands
@@ -234,7 +235,7 @@ stop-anvil: ## Stop all running Anvil instances.
 	@echo "$(GREEN)✅ Anvil instances stopped$(NC)"
 
 # ================
-##@ Relayer TS Commands
+##@ Relayer TS - Docker Commands
 
 .PHONY: dockercompose-up
 dockercompose-up: ## Start relayer with Docker Compose (build and logs).
@@ -266,6 +267,9 @@ dockercompose-clean: ## Clean Docker containers, volumes and images.
 	@echo "$(YELLOW)Cleaning Docker containers, volumes and images...$(NC)"
 	docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml down -v --rmi all
 
+# ================
+##@ Relayer TS - PNPM Commands
+
 .PHONY: relayer-build
 relayer-build: ## Build TypeScript relayer.
 	@echo "$(GREEN)Building relayer...$(NC)"
@@ -285,6 +289,12 @@ relayer-clean: ## Clean relayer build artifacts.
 relayer-start: ## Start built relayer.
 	@echo "$(GREEN)Starting relayer...$(NC)"
 	@cd relayer && pnpm start
+
+.PHONY: relayer-install
+relayer-install: check-deps ## Install relayer dependencies only.
+	@echo "Installing relayer dependencies..."
+	@cd relayer && pnpm install
+	@echo "$(GREEN)Relayer dependencies installed successfully!$(NC)"
 
 # ================
 ##@ Utility Commands
@@ -326,11 +336,6 @@ check-deps: ## Verify required system dependencies are installed.
 	fi
 	@echo "✨ All dependencies are satisfied"
 
-.PHONY: install-relayer
-install-relayer: check-deps ## Install relayer dependencies only.
-	@echo "Installing relayer dependencies..."
-	@cd relayer && pnpm install --ignore-scripts
-	@echo "$(GREEN)Relayer dependencies installed successfully!$(NC)"
 
 # ================
 ##@ General Demo Commands
