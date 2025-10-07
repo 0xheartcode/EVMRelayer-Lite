@@ -238,12 +238,16 @@ stop-anvil: ## Stop all running Anvil instances.
 
 .PHONY: dockercompose-up
 dockercompose-up: ## Start relayer with Docker Compose (build and logs).
+	@echo "$(GREEN)Cleaning previous Docker containers...$(NC)"
+	@$(MAKE) dockercompose-clean
 	@echo "$(GREEN)Starting relayer with Docker Compose...$(NC)"
 	export DOCKER_IMAGE_NAME=DOCKER_EVMRELAYER_LITE && \
 	docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml up --build
 
 .PHONY: dockercompose-up-d
 dockercompose-up-detached: ## Start relayer with Docker Compose detached.
+	@echo "$(GREEN)Cleaning previous Docker containers...$(NC)"
+	@$(MAKE) dockercompose-clean
 	@echo "$(GREEN)Starting relayer with Docker Compose...$(NC)"
 	export DOCKER_IMAGE_NAME=DOCKER_EVMRELAYER_LITE && \
 	docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml up --build -d
@@ -336,12 +340,14 @@ demo: ## Complete end-to-end demo: start anvil, deploy, send message, run relaye
 	@echo "$(GREEN)Starting Complete End-to-End Cross-Chain Demo$(NC)"
 	@echo "================================================="
 	@$(MAKE) demo-cleanup-silent || true
-	@$(MAKE) start-anvil
+	@echo "$(YELLOW)Clearing relayer state for fresh start...$(NC)"
+	@echo '{}' > relayer/relayer-state.json
+	@$(MAKE) stop-anvil && $(MAKE) start-anvil
 	@sleep 5
 	@echo "$(YELLOW)Deploying and configuring contracts...$(NC)"
 	@$(MAKE) setup
 	@echo "$(YELLOW)Sending test message...$(NC)"
-	@MESSAGE="Hello today we are the $$(date '+%d') of $$(date '+%B')" $(MAKE) demo-send-message
+	@MESSAGE="Hello today we are Thursday 09 October" $(MAKE) demo-send-message
 	@echo "$(YELLOW)Starting relayer backend...$(NC)"
 	@$(MAKE) demo-run-relayer
 	@echo "$(GREEN)End-to-end demo completed successfully!$(NC)"
@@ -356,6 +362,8 @@ demo-custom-message: ## Send custom message and watch processing (use MESSAGE="y
 	@echo "$(GREEN)Custom Message Demo: $(MESSAGE)$(NC)"
 	@echo "================================================="
 	@$(MAKE) demo-cleanup-silent || true
+	@echo "$(YELLOW)Clearing relayer state for fresh start...$(NC)"
+	@echo '{}' > relayer/relayer-state.json
 	@$(MAKE) start-anvil
 	@sleep 5
 	@echo "$(YELLOW)Deploying and configuring contracts...$(NC)"
@@ -384,40 +392,40 @@ demo-run-relayer: ## Build and run relayer, monitor for 3-phase completion.
 	@echo "$(GREEN)Starting relayer and monitoring for message processing...$(NC)"
 	@echo "$(YELLOW)Watching for Phase 1 (claimBlock), Phase 2 (executeMessage), Phase 3 (confirmBlockDelivery)$(NC)"
 	@echo ""
-	@cd relayer && timeout 120 bash -c '\
-		node dist/index.js 2>&1 | while read line; do \
-			echo "$$line"; \
-			if echo "$$line" | grep -q "Web3 Call: claimBlock"; then \
-				echo "$(GREEN)PHASE 1 DETECTED: Block claimed!$(NC)"; \
-			elif echo "$$line" | grep -q "Web3 Call: executeMessage"; then \
-				echo "$(GREEN)PHASE 2 DETECTED: Message executed on destination!$(NC)"; \
-			elif echo "$$line" | grep -q "Web3 Call: confirmBlockDelivery"; then \
-				echo "$(GREEN)PHASE 3 DETECTED: Delivery proof submitted!$(NC)"; \
-				echo "$(YELLOW)Waiting 5 seconds to let logs settle...$(NC)"; \
-				sleep 5; \
-				echo ""; \
-				echo "$(GREEN)\\o.o/ You have arrived at the end of this script!$(NC)"; \
-				echo "$(GREEN)The demo worked properly, here is all that we have done:$(NC)"; \
-				echo ""; \
-				echo "$(YELLOW)📋 Demo Summary:$(NC)"; \
-				echo "  ✅ Started Anvil instances (Chain 31337 & 31338)"; \
-				echo "  ✅ Deployed CrossChain contracts to both chains"; \
-				echo "  ✅ Configured relayer permissions"; \
-				echo "  ✅ Verified contract setup"; \
-				echo "  ✅ Sent cross-chain message: 'Hello today we are the $$(date '+%d') of $$(date '+%B')'"; \
-				echo "  ✅ Built and started relayer backend"; \
-				echo "  ✅ PHASE 1: Claimed block and picked up transaction"; \
-				echo "  ✅ PHASE 2: Executed message on destination chain"; \
-				echo "  ✅ PHASE 3: Submitted delivery proof back to source chain"; \
-				echo ""; \
-				echo "$(GREEN)🎉 3-Phase Cross-Chain Protocol completed successfully!$(NC)"; \
-				pkill -f "node dist/index.js" || true; \
-				break; \
-			fi; \
-		done' || { \
-		echo "$(YELLOW)Timeout reached or relayer stopped$(NC)"; \
-		pkill -f "node dist/index.js" || true; \
-	}
+	@cd relayer && \
+	node dist/index.js 2>&1 | while read line; do \
+		echo "$$line"; \
+		if echo "$$line" | grep -q "Web3 Call: claimBlock"; then \
+			echo "PHASE 1 DETECTED: Block claimed!"; \
+		elif echo "$$line" | grep -q "Web3 Call: executeMessage"; then \
+			echo "PHASE 2 DETECTED: Message executed on destination!"; \
+		elif echo "$$line" | grep -q "✅ PHASE 3 COMPLETE"; then \
+			echo "PHASE 3 DETECTED: Delivery proof submitted!"; \
+			echo "Waiting 7 seconds to let logs settle..."; \
+			sleep 7; \
+			echo ""; \
+			echo "The demo worked properly, here is all that we have done:"; \
+			echo ""; \
+			echo "📋 Demo Summary:"; \
+			echo "  ✅ Started Anvil instances (Chain 31337 & 31338)"; \
+			echo "  ✅ Deployed CrossChain contracts to both chains"; \
+			echo "  ✅ Configured relayer permissions"; \
+			echo "  ✅ Verified contract setup"; \
+			echo "  ✅ Sent cross-chain message: Hello today we are Thursday 09 October"; \
+			echo "  ✅ Built and started relayer backend"; \
+			echo "  ✅ PHASE 1: Claimed block and picked up transaction"; \
+			echo "  ✅ PHASE 2: Executed message on destination chain"; \
+			echo "  ✅ PHASE 3: Submitted delivery proof back to source chain"; \
+			echo ""; \
+			echo "🎉 3-Phase Cross-Chain Protocol completed successfully!"; \
+			echo ""; \
+			echo "\\o.o/ You have arrived at the end of this script!"; \
+			sleep 3; \
+			pkill -f "node dist/index.js" || true; \
+			exit 0; \
+		fi; \
+	done
+	@pkill -f "node dist/index.js" || true
 	@echo "$(GREEN)Relayer monitoring completed.$(NC)"
 
 .PHONY: demo-cleanup
@@ -432,53 +440,55 @@ demo-docker: ## Complete end-to-end demo using Docker: start anvil, deploy, send
 	@echo "$(GREEN)Starting Complete End-to-End Cross-Chain Demo with Docker$(NC)"
 	@echo "========================================================="
 	@$(MAKE) demo-cleanup-silent || true
-	@$(MAKE) start-anvil
+	@echo "$(YELLOW)Manually cleaning Docker to ensure fresh start...$(NC)"
+	@$(MAKE) dockercompose-clean || true
+	@echo "$(YELLOW)Clearing relayer state for fresh start...$(NC)"
+	@echo '{}' > relayer/relayer-state.json
+	@$(MAKE) stop-anvil && $(MAKE) start-anvil
 	@sleep 5
 	@echo "$(YELLOW)Deploying and configuring contracts...$(NC)"
 	@$(MAKE) setup
 	@echo "$(YELLOW)Sending test message...$(NC)"
-	@MESSAGE="Hello today we are the $$(date '+%d') of $$(date '+%B')" $(MAKE) demo-send-message
+	@MESSAGE="Hello today we are Thursday 09 October" $(MAKE) demo-send-message
 	@echo "$(YELLOW)Starting relayer in Docker and monitoring for completion...$(NC)"
 	@echo "$(YELLOW)Watching for Phase 1 (claimBlock), Phase 2 (executeMessage), Phase 3 (confirmBlockDelivery)$(NC)"
 	@echo ""
-	@$(MAKE) dockercompose-up & \
-	DOCKER_PID=$$! && \
-	timeout 120 docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml logs -f relayer 2>&1 | while read line; do \
+	@export DOCKER_IMAGE_NAME=DOCKER_EVMRELAYER_LITE && \
+	timeout 120 docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml up --build 2>&1 | while read line; do \
 		echo "$$line"; \
-		if echo "$$line" | grep -q "Web3 Call: confirmBlockDelivery"; then \
-			echo "$(GREEN)PHASE 3 COMPLETED - STOPPING$(NC)"; \
-			echo "$(YELLOW)Waiting 5 seconds to let logs settle...$(NC)"; \
-			sleep 5; \
+		if echo "$$line" | grep -q "✅ PHASE 3 COMPLETE"; then \
+			echo "\\o.o/ GREP HIT DETECTED! confirmBlockDelivery found!"; \
+			echo "PHASE 3 COMPLETED - STOPPING"; \
+			echo "Waiting 7 seconds to let logs settle..."; \
+			sleep 7; \
 			echo ""; \
-			echo "$(GREEN)\\o.o/ You have arrived at the end of this script!$(NC)"; \
-			echo "$(GREEN)The demo worked properly, here is all that we have done:$(NC)"; \
+			echo "The demo worked properly, here is all that we have done:"; \
 			echo ""; \
-			echo "$(YELLOW)📋 Demo Summary:$(NC)"; \
+			echo "📋 Demo Summary:"; \
 			echo "  ✅ Started Anvil instances (Chain 31337 & 31338)"; \
 			echo "  ✅ Deployed CrossChain contracts to both chains"; \
 			echo "  ✅ Configured relayer permissions"; \
 			echo "  ✅ Verified contract setup"; \
-			echo "  ✅ Sent cross-chain message: 'Hello today we are the $$(date '+%d') of $$(date '+%B')'"; \
+			echo "  ✅ Sent cross-chain message: Hello today we are Thursday 09 October"; \
 			echo "  ✅ Started relayer in Docker container"; \
 			echo "  ✅ PHASE 1: Claimed block and picked up transaction"; \
 			echo "  ✅ PHASE 2: Executed message on destination chain"; \
 			echo "  ✅ PHASE 3: Submitted delivery proof back to source chain"; \
 			echo ""; \
-			echo "$(GREEN)🎉 3-Phase Cross-Chain Protocol completed successfully!$(NC)"; \
-			echo "$(YELLOW)🧹 Cleaning up processes...$(NC)"; \
-			$(MAKE) dockercompose-down; \
-			$(MAKE) stop-anvil; \
-			echo "$(GREEN)✅ All processes stopped gracefully$(NC)"; \
-			kill $$DOCKER_PID 2>/dev/null || true; \
-			exit 0; \
+			echo "🎉 3-Phase Cross-Chain Protocol completed successfully!"; \
+			echo ""; \
+			echo "\\o.o/ You have arrived at the end of this script!"; \
+			docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml down; \
+			break; \
 		fi; \
 	done
+	@echo "$(YELLOW)🧹 Cleaning up processes...$(NC)"
+	@$(MAKE) dockercompose-clean && $(MAKE) stop-anvil && echo "$(GREEN)✅ All processes stopped gracefully$(NC)" 
 	@echo "$(GREEN)Docker demo completed successfully!$(NC)"
-	@$(MAKE) demo-cleanup
 
 .PHONY: demo-cleanup-silent
 demo-cleanup-silent: ## Silent cleanup for internal use.
 	@pkill -f "node dist/index.js" 2>/dev/null || true
 	@pkill anvil 2>/dev/null || true
-	@docker compose -p evmrelayer-lite -f relayer/utils/dockerfiles/docker-compose.yml stop 2>/dev/null || true
+	@$(MAKE) dockercompose-clean 2>/dev/null || true
 
