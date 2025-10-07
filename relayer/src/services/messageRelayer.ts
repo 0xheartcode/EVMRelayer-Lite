@@ -326,20 +326,31 @@ export class MessageRelayer {
    */
   getStatus(): {
     isRunning: boolean;
-    state: ReturnType<RelayerState['getSummary']>;
+    state: {
+      lastProcessedBlock: string;
+      failedTransactionCount: number;
+      uptimeMs: number;
+      version: string;
+    };
     config: {
       sourceChain: string;
       destChain: string;
-      startBlock: bigint;
+      startBlock: string;
     };
   } {
+    const stateSummary = this.state.getSummary();
     return {
       isRunning: this.isRunning,
-      state: this.state.getSummary(),
+      state: {
+        lastProcessedBlock: stateSummary.lastProcessedBlock.toString(),
+        failedTransactionCount: stateSummary.failedTransactionCount,
+        uptimeMs: stateSummary.uptimeMs,
+        version: stateSummary.version,
+      },
       config: {
         sourceChain: `${config.sourceChain.chainId} @ ${config.sourceChain.rpcUrl}`,
         destChain: `${config.destChain.chainId} @ ${config.destChain.rpcUrl}`,
-        startBlock: config.sourceChain.startBlock,
+        startBlock: config.sourceChain.startBlock.toString(),
       },
     };
   }
